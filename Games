@@ -1,0 +1,223 @@
+<h1> Poker </h1>
+var Game = require('./src/game');
+var game = new Game();
+
+game.addPlayer({
+    name: "A",
+    chips: 40000
+});
+game.addPlayer({
+    name: "B",
+    chips: 20000
+});
+game.addPlayer({
+    name: "C",
+    chips: 20000
+});
+
+game.start();
+
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().callOrCheck();      // B
+game.getCurrentPlayer().raise(2000);        // C
+game.getCurrentPlayer().raise(2000);        // A
+game.getCurrentPlayer().fold();             // B
+game.getCurrentPlayer().callOrCheck();      // C
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().raise(1000);        // C
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().callOrCheck();      // C
+game.getCurrentPlayer().raise(3000);        // A
+game.getCurrentPlayer().callOrCheck();      // C
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().callOrCheck();      // C
+
+up vote
+7
+down vote
+favorite
+3
+I'm building a simple Poker game. It is almost complete, but I want to refactor it early.
+
+To calculate hand strength / ranks, I use this library from NPM: poker-evaluator
+For deck shuffling, I use the Fisher-Yates algorithm
+My code is mainly about game-play, determine if ready to start next round, determine whose turn it is, etc. I want to make this code more readable, easy to maintain, and not too difficult to understand for other programmers. Any suggestions?
+
+index.js (usage)
+
+var Game = require('./src/game');
+var game = new Game();
+
+game.addPlayer({
+    name: "A",
+    chips: 40000
+});
+game.addPlayer({
+    name: "B",
+    chips: 20000
+});
+game.addPlayer({
+    name: "C",
+    chips: 20000
+});
+
+game.start();
+
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().callOrCheck();      // B
+game.getCurrentPlayer().raise(2000);        // C
+game.getCurrentPlayer().raise(2000);        // A
+game.getCurrentPlayer().fold();             // B
+game.getCurrentPlayer().callOrCheck();      // C
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().raise(1000);        // C
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().callOrCheck();      // C
+game.getCurrentPlayer().raise(3000);        // A
+game.getCurrentPlayer().callOrCheck();      // C
+game.getCurrentPlayer().callOrCheck();      // A
+game.getCurrentPlayer().callOrCheck();      // C
+Results in console:
+
+Player A added to the game
+Player B added to the game
+Player C added to the game
+Game reset
+========== STARTING GAME ==========
+    Player A gets card : As & 4c
+Player B gets card : Th & 2s
+Player C gets card : 5c & 7s
+Player A is the dealer
+Player B pays small blind : 1000
+Player C pays big blind : 2000
+Now its player A's turn
+========== Round DEAL ==========
+    Player A CALL : 2000
+cannot begin next round
+Player B CALL : 1000
+cannot begin next round
+Player C Raises : 2000
+cannot begin next round
+Player A Raises : 4000
+cannot begin next round
+Player B FOLD
+cannot begin next round
+Player C CALL : 2000
+begin next round
+Total Pot : 14000
+========== Round FLOP ==========
+    Community cards : Ad, Qh, 6h
+Player A CHECK
+cannot begin next round
+Player C Raises : 1000
+cannot begin next round
+Player A CALL : 1000
+begin next round
+Total Pot : 16000
+========== Round TURN ==========
+    Community cards : Ad, Qh, 6h, 3d
+Player C CHECK
+cannot begin next round
+Player A Raises : 3000
+cannot begin next round
+Player C CALL : 3000
+begin next round
+Total Pot : 22000
+========== Round RIVER ==========
+    Community cards : Ad, Qh, 6h, 3d, 8d
+Player A CHECK
+cannot begin next round
+Player C CHECK
+begin next round
+Total Pot : 22000
+========== SHOWDOWN ==========
+    Community cards : Ad, Qh, 6h, 3d, 8d
+Player A : As, 4c | strength : 10972 | one pair
+Player B : Th, 2s | strength : 5165 | high card
+Player C : 5c, 7s | strength : 5124 | high card
+Player A wins with one pair
+game.js
+
+module.exports = Game;
+
+var Player = require('./player.js');
+var Deck = require('./deck.js');
+var PokerEvaluator = require('poker-evaluator');
+
+var debug = true;
+function logd(message) {
+    if (debug) {
+        console.log(message);
+    }
+}
+
+function Game() {
+    // Game attributes
+    this.BET = 2000;
+
+    this.players = [];          // array of Player object, represents all players in this game
+    this.round = 'idle';        // current round in a game
+    this.dealerPos = 0;         // to determine the dealer position for each game, incremented by 1 for each end game
+    this.turnPos = 0;           // to determine whose turn it is in a playing game
+    this.pot = 0;               // accumulated chips in center of the table
+    this.communityCards = [];   // array of Card object, five cards in center of the table
+    this.deck = new Deck();     // deck of playing cards
+}
+
+/**
+ * Adds new player to the game
+ * @param attr
+ */
+Game.prototype.addPlayer = function(attr) {
+    var newPlayer = new Player(attr);
+    logd('Player ' + newPlayer.name + ' added to the game');
+    newPlayer.game = this;
+    this.players.push(newPlayer);
+};
+module.exports = Deck;
+
+function Deck() {
+    this.suits = [ 's', 'h', 'd', 'c' ];
+    this.ranks = [ '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A' ];
+    this.cards = [];
+
+    this.init();
+    this.shuffle();
+}
+
+Deck.prototype.init = function() {
+    var suitsLen = this.suits.length;
+    var ranksLen = this.ranks.length;
+    var i, j;
+
+    for (i=0; i<suitsLen; i++) {
+        for (j=0; j<ranksLen; j++) {
+            this.cards.push( this.ranks[j] + this.suits[i] );
+        }
+    }
+};
+
+/**
+ * Fisher-Yates Shuffle
+ * http://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
+ */
+Deck.prototype.shuffle = function() {
+    var currentIndex = this.cards.length, temporaryValue, randomIndex ;
+
+    // While there remain elements to shuffle...
+    while (0 !== currentIndex) {
+
+        // Pick a remaining element...
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex -= 1;
+
+        // And swap it with the current element.
+        temporaryValue = this.cards[currentIndex];
+        this.cards[currentIndex] = this.cards[randomIndex];
+        this.cards[randomIndex] = temporaryValue;
+    }
+};
+
+Deck.prototype.drawCard = function () {
+    return this.cards.pop();
+};
